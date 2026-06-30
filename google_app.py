@@ -85,7 +85,20 @@ def main():
     if uploaded_pdf is not None:
         with st.spinner("Processing PDF..."):
             raw_text = get_pdf_text(uploaded_pdf)
+
+            if not raw_text.strip():
+                st.error(
+                    "No readable text was found in this PDF. "
+                    "It may be image-only or require OCR (optical character recognition)."
+                )
+                return
+
             text_chunks = get_text_chunks(raw_text)
+
+            if not text_chunks:
+                st.error("Unable to create text chunks.")
+                return
+
             vectorstore = get_vectorstore(text_chunks)
             # FIX: Store conversation in session_state so it persists across reruns
             st.session_state.conversation = get_conversation_chain(vectorstore)
