@@ -1,6 +1,7 @@
 
 # pip install streamlit pypdf2 langchain python-dotenv faiss-cpu openai huggingface_hub langchain_text_splitters langchain-openai langchain-community langchain_huggingface sentence-transformers torchvision langchain.memory
-#pip install langchain-google-genai
+# pip install langchain-google-genai
+# pip install pycryptodome
 import streamlit as st
 from PyPDF2 import PdfReader
 from langchain_classic.chains import ConversationalRetrievalChain
@@ -14,13 +15,33 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from PyPDF2 import PdfReader
+
 def get_pdf_text(pdf):
     text = ""
-    reader = PdfReader(pdf)
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text
+
+    try:
+        reader = PdfReader(pdf)
+
+        # Handle encrypted PDFs
+        if reader.is_encrypted:
+            try:
+                # Try opening with an empty password
+                reader.decrypt("")
+            except Exception:
+                raise Exception(
+                    "This PDF is encrypted. Install 'pycryptodome' or provide the correct password."
+                )
+
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+
+    except Exception as e:
+        st.error(f"Error reading PDF: {e}")
+        return ""
+
     return text
 
 def get_text_chunks(text):
@@ -92,5 +113,6 @@ def main():
             st.markdown(answer)
         st.session_state.messages.append({"role": "assistant", "content": answer})
 
+# streamlit run google_app.py
 if __name__ == "__main__":
     main()
