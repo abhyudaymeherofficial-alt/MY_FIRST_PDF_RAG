@@ -12,3 +12,7 @@ python-dotenv
 langchain_openai
 torchvision
 pycryptodome
+pytesseract
+pillow
+pdf2image
+io
