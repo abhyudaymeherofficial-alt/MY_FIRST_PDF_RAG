@@ -1,7 +1,9 @@
 
 # pip install streamlit pypdf2 langchain python-dotenv faiss-cpu openai huggingface_hub langchain_text_splitters langchain-openai langchain-community langchain_huggingface sentence-transformers torchvision langchain.memory
-# pip install langchain-google-genai
+#pip install langchain-google-genai
 # pip install pycryptodome
+# pip install pytesseract pdf2image pillow
+# sudo apt install tesseract-ocr
 import streamlit as st
 from PyPDF2 import PdfReader
 from langchain_classic.chains import ConversationalRetrievalChain
@@ -11,6 +13,10 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_classic.memory import ConversationBufferMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
+import io
+import pytesseract
+from pdf2image import convert_from_bytes
+from PyPDF2 import PdfReader
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -21,22 +27,38 @@ def get_pdf_text(pdf):
     text = ""
 
     try:
-        reader = PdfReader(pdf)
+        # Read PDF bytes once
+        pdf_bytes = pdf.read()
+
+        # Create reader from bytes
+        reader = PdfReader(io.BytesIO(pdf_bytes))
 
         # Handle encrypted PDFs
         if reader.is_encrypted:
             try:
-                # Try opening with an empty password
                 reader.decrypt("")
             except Exception:
                 raise Exception(
                     "This PDF is encrypted. Install 'pycryptodome' or provide the correct password."
                 )
 
-        for page in reader.pages:
+        # Convert all pages to images (used only if OCR is needed)
+        images = convert_from_bytes(pdf_bytes)
+
+        for page_num, page in enumerate(reader.pages):
+
+            # Try normal text extraction first
             page_text = page.extract_text()
-            if page_text:
+
+            if page_text and page_text.strip():
                 text += page_text + "\n"
+
+            else:
+                # OCR fallback
+                ocr_text = pytesseract.image_to_string(images[page_num])
+
+                if ocr_text.strip():
+                    text += ocr_text + "\n"
 
     except Exception as e:
         st.error(f"Error reading PDF: {e}")
@@ -85,20 +107,7 @@ def main():
     if uploaded_pdf is not None:
         with st.spinner("Processing PDF..."):
             raw_text = get_pdf_text(uploaded_pdf)
-
-            if not raw_text.strip():
-                st.error(
-                    "No readable text was found in this PDF. "
-                    "It may be image-only or require OCR (optical character recognition)."
-                )
-                return
-
             text_chunks = get_text_chunks(raw_text)
-
-            if not text_chunks:
-                st.error("Unable to create text chunks.")
-                return
-
             vectorstore = get_vectorstore(text_chunks)
             # FIX: Store conversation in session_state so it persists across reruns
             st.session_state.conversation = get_conversation_chain(vectorstore)
