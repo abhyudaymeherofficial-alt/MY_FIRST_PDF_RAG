@@ -15,6 +15,4 @@ pycryptodome
 pytesseract
 pillow
 pdf2image
-iopoppler-utils
-tesseract-ocr
 
